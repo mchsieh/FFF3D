@@ -1,0 +1,3 @@
+*.passphrase
+__pycache__/
+*.pyc

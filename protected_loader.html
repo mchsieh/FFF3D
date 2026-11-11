@@ -1,0 +1,90 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<meta name="description" content="{{DESC}}">
+<title>{{TITLE}}</title>
+<style>
+:root { color-scheme: light dark; --fg: #1c1c1c; --muted: #666; --bg: #fff; --box: #f4f4f2; --accent: #b4532a; --err: #b00020; }
+@media (prefers-color-scheme: dark) { :root { --fg: #e8e8e8; --muted: #a0a0a0; --bg: #161616; --box: #222; --accent: #e08a5e; --err: #ff6b6b; } }
+html, body { margin: 0; background: var(--bg); color: var(--fg); font: 16px/1.5 "Source Sans 3", "Helvetica Neue", Arial, sans-serif; }
+main { max-width: 30rem; margin: 12vh auto 0; padding: 0 20px; }
+h1 { font-size: 1.35rem; font-weight: 600; margin: 0 0 0.4rem; }
+p { margin: 0 0 1rem; color: var(--muted); }
+form { background: var(--box); border-radius: 8px; padding: 18px 18px 14px; display: grid; gap: 12px; }
+label { font-size: 0.9rem; }
+input[type=password] { width: 100%; box-sizing: border-box; font: inherit; padding: 8px 10px; border: 1px solid #8884; border-radius: 6px; background: var(--bg); color: var(--fg); }
+button { font: inherit; font-weight: 600; padding: 8px 16px; border: 0; border-radius: 6px; background: var(--accent); color: #fff; cursor: pointer; }
+button[disabled] { opacity: 0.6; cursor: wait; }
+.row { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+.row label { display: flex; align-items: center; gap: 6px; color: var(--muted); }
+#msg { min-height: 1.4em; font-size: 0.9rem; color: var(--err); margin: 0; }
+footer { margin-top: 2rem; font-size: 0.8rem; color: var(--muted); }
+</style>
+</head>
+<body>
+<main>
+  <h1>{{TITLE}}</h1>
+  <p>This page is for the project group. Enter the passphrase you were given by the author; the page is decrypted in your browser and nothing is sent anywhere.</p>
+  <form id="f">
+    <label for="pw">Passphrase</label>
+    <input id="pw" type="password" autocomplete="current-password" autofocus required>
+    <div class="row">
+      <button id="go" type="submit">Open</button>
+      <label><input id="keep" type="checkbox"> remember on this device</label>
+    </div>
+    <p id="msg" role="alert"></p>
+  </form>
+  <footer>Public summary: <a href="{{PUBLIC}}">FFF3D result report</a></footer>
+</main>
+<script id="ct" type="application/octet-stream">{{B64}}</script>
+<script>
+(function () {
+  var ITER = {{ITER}}, KEY = 'fff3d.pass';
+  var f = document.getElementById('f'), pw = document.getElementById('pw'), go = document.getElementById('go'),
+      keep = document.getElementById('keep'), msg = document.getElementById('msg');
+  function bytes() {
+    var s = document.getElementById('ct').textContent.replace(/\s+/g, ''), bin = atob(s), u = new Uint8Array(bin.length);
+    for (var i = 0; i < bin.length; i++) u[i] = bin.charCodeAt(i);
+    return u;
+  }
+  async function unlock(pass) {
+    var raw = bytes();
+    if (String.fromCharCode.apply(null, raw.slice(0, 8)) !== 'Salted__') throw new Error('format');
+    var salt = raw.slice(8, 16), data = raw.slice(16);
+    var km = await crypto.subtle.importKey('raw', new TextEncoder().encode(pass), 'PBKDF2', false, ['deriveBits']);
+    var bits = new Uint8Array(await crypto.subtle.deriveBits({name: 'PBKDF2', hash: 'SHA-256', salt: salt, iterations: ITER}, km, 384));
+    var key = await crypto.subtle.importKey('raw', bits.slice(0, 32), {name: 'AES-CBC'}, false, ['decrypt']);
+    var pt = await crypto.subtle.decrypt({name: 'AES-CBC', iv: bits.slice(32, 48)}, key, data);
+    var html = new TextDecoder().decode(pt);
+    if (html.slice(0, 15).toLowerCase() !== '<!doctype html>') throw new Error('bad');
+    return html;
+  }
+  function show(html) {
+    var hash = location.hash;
+    document.open(); document.write(html); document.close();
+    if (hash) setTimeout(function () { var el = document.getElementById(hash.slice(1)); if (el) el.scrollIntoView(); }, 50);
+  }
+  async function attempt(pass, remember, silent) {
+    go.disabled = true; msg.textContent = silent ? '' : 'Decrypting…';
+    try {
+      var html = await unlock(pass);
+      try { sessionStorage.setItem(KEY, pass); if (remember) localStorage.setItem(KEY, pass); } catch (e) {}
+      show(html);
+    } catch (e) {
+      go.disabled = false;
+      if (!silent) { msg.textContent = 'That passphrase does not open this page.'; pw.select(); }
+      try { sessionStorage.removeItem(KEY); localStorage.removeItem(KEY); } catch (e2) {}
+    }
+  }
+  f.addEventListener('submit', function (ev) { ev.preventDefault(); if (pw.value) attempt(pw.value, keep.checked, false); });
+  if (!window.crypto || !crypto.subtle) { msg.textContent = 'This browser cannot decrypt the page (no Web Crypto); use a current browser over https.'; return; }
+  var saved = null;
+  try { saved = sessionStorage.getItem(KEY) || localStorage.getItem(KEY); } catch (e) {}
+  if (saved) attempt(saved, false, true);
+})();
+</script>
+</body>
+</html>

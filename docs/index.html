@@ -1,0 +1,586 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="FFF3D: finite-fault inversion with 3-D strain Green's tensors, demonstrated on a synthetic test in a Taiwan 3-D velocity model.">
+<title>FFF3D: finite-fault inversion with 3-D Green's functions</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&family=Source+Sans+3:ital,wght@0,400;0,600;0,700;1,400&family=Source+Serif+4:opsz,wght@8..60,600;8..60,700&display=swap">
+<style>
+/* Layout: one 64rem column. Every figure plate spans the column and every figure is drawn on the same 680-px canvas, so the
+   lettering inside figures has one size throughout (host 10-19); text stays at 44rem; tables scroll inside their own box. */
+:root {
+  --bg: #FAFBFC; --fg: #23272F; --muted: #687280; --head: #1F3A5F; --accent: #C4561E; --good: #2E7D5B;
+  --line: #D8DEE6; --soft: #EFF2F6; --plate: #FFFFFF; --fwd: #E7EDF5; --fwd-b: #A9BBD2; --inv: #FBEDE4; --inv-b: #EDB896;
+  --tst: #E5F1EB; --tst-b: #A6CDB8;
+  --f-display: "Source Serif 4", Georgia, "Times New Roman", serif;
+  --f-body: "Source Sans 3", "Segoe UI", Helvetica, Arial, sans-serif;
+  --f-mono: "JetBrains Mono", Consolas, Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #12171E; --fg: #E2E6EC; --muted: #9AA4B2; --head: #A9C2E2; --accent: #F0915A; --good: #7CC7A0;
+  --line: #2C3540; --soft: #1A222C; --plate: #FFFFFF; --fwd: #1C2A3B; --fwd-b: #3E5A7E; --inv: #3A2418; --inv-b: #8A4E2C;
+  --tst: #183026; --tst-b: #3F7A5C; color-scheme: dark } }
+:root[data-theme="dark"] {
+  --bg: #12171E; --fg: #E2E6EC; --muted: #9AA4B2; --head: #A9C2E2; --accent: #F0915A; --good: #7CC7A0;
+  --line: #2C3540; --soft: #1A222C; --plate: #FFFFFF; --fwd: #1C2A3B; --fwd-b: #3E5A7E; --inv: #3A2418; --inv-b: #8A4E2C;
+  --tst: #183026; --tst-b: #3F7A5C; color-scheme: dark }
+body { background: var(--bg); color: var(--fg); font-family: var(--f-body); font-size: 17px; line-height: 1.6; }
+.page { max-width: 64rem; margin: 0 auto; padding-inline: 20px; padding-block: 40px 72px; display: grid; grid-template-columns: minmax(0, 1fr); gap: 56px; }
+/* a figure that needs more room than the column (three map panels side by side) widens to 88rem, centred on the column */
+.wide-fig { width: min(88rem, calc(100vw - 40px)); position: relative; left: 50%; transform: translateX(-50%); }
+.prose { max-width: 44rem; display: grid; gap: 14px; }
+.prose > * { margin: 0; }
+h1, h2, h3 { font-family: var(--f-display); color: var(--head); text-wrap: balance; margin: 0; line-height: 1.2; }
+h1 { font-size: clamp(1.9rem, 4vw, 2.7rem); font-weight: 700; max-width: 22ch; }
+h2 { font-size: 1.75rem; font-weight: 700; }
+h3 { font-size: 1.25rem; font-weight: 600; }
+.eyebrow { font-family: var(--f-mono); font-size: 0.78rem; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); margin: 0; }
+section { display: grid; grid-template-columns: minmax(0, 1fr); gap: 22px; scroll-margin-top: 16px; }
+.sub { display: grid; grid-template-columns: minmax(0, 1fr); gap: 14px; }
+/* fixed tracks: the wide figure overflows its track instead of widening the column */
+a { color: var(--head); text-underline-offset: 2px; }
+a:focus-visible, video:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+code, .mono { font-family: var(--f-mono); font-size: 0.86em; }
+var { font-style: italic; font-family: var(--f-body); }
+ul, ol { margin: 0; padding-left: 1.3em; display: grid; gap: 6px; }
+
+header { display: grid; gap: 18px; }
+.lead { font-size: 1.12rem; max-width: 44rem; margin: 0; }
+.notice { background: var(--soft); border: 1px solid var(--line); border-radius: 8px; padding: 14px 18px; max-width: 44rem; display: grid; gap: 4px; }
+.notice strong { color: var(--accent); font-family: var(--f-mono); font-size: 0.78rem; letter-spacing: 0.06em; text-transform: uppercase; }
+.notice p { margin: 0; }
+.keyline { display: flex; flex-wrap: wrap; gap: 8px 22px; margin: 0; padding: 0; list-style: none; font-variant-numeric: tabular-nums; }
+.keyline li { display: flex; gap: 6px; align-items: baseline; }
+.keyline b { font-family: var(--f-display); font-size: 1.35rem; color: var(--head); }
+.keyline span { color: var(--muted); }
+nav ul { list-style: none; padding: 0; display: flex; flex-wrap: wrap; gap: 6px 18px; font-size: 0.95rem; }
+
+figure { margin: 0; display: grid; gap: 8px; min-width: 0; }
+.plate { background: var(--plate); border: 1px solid var(--line); border-radius: 6px; padding: 10px; }
+.plate img { display: block; width: 100%; height: auto; cursor: zoom-in; }
+.zoom { position: fixed; inset: 0; z-index: 10; background: rgba(10, 14, 20, 0.86); display: flex; align-items: center; justify-content: center; padding: 16px; cursor: zoom-out; }
+.zoom img { max-width: 100%; max-height: 100%; width: auto; height: auto; background: #FFFFFF; border-radius: 4px; padding: 8px; }
+.hint { color: var(--muted); font-size: 0.9rem; margin: 0; }
+figcaption, .figcap { color: var(--muted); font-size: 0.93rem; max-width: 48rem; margin: 0; }
+video { display: block; width: 100%; height: auto; border-radius: 6px; background: #000; }
+.vid-wide { max-width: 100%; }
+.split { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 28px; align-items: start; }
+.split.v { grid-template-columns: minmax(0, 22rem) minmax(0, 1fr); }
+@media (max-width: 760px) { .split, .split.v { grid-template-columns: minmax(0, 1fr); } }
+
+.take { margin: 0; padding: 12px 16px; background: var(--soft); border-radius: 6px; max-width: 52rem; }
+.take::before { content: "Result  "; font-family: var(--f-mono); font-size: 0.75rem; letter-spacing: 0.06em; text-transform: uppercase; color: var(--accent); white-space: pre; }
+
+.stats { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px; }
+.stats.three { grid-template-columns: repeat(3, minmax(0, 1fr)); max-width: 52rem; }
+@media (max-width: 760px) { .stats, .stats.three { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.stat { background: var(--soft); border-radius: 8px; padding: 14px 16px; display: grid; gap: 4px; align-content: start; }
+.stat .v { font-family: var(--f-display); font-size: 2.1rem; font-weight: 700; color: var(--head); line-height: 1.1; font-variant-numeric: tabular-nums; }
+.stat .k { font-weight: 600; }
+.stat .d { color: var(--muted); font-size: 0.9rem; line-height: 1.45; }
+.stat .who { font-family: var(--f-mono); font-size: 0.72rem; letter-spacing: 0.04em; text-transform: uppercase; }
+.who.n { color: var(--head); } .who.a { color: var(--accent); }
+
+.cards { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; max-width: 52rem; }
+@media (max-width: 640px) { .cards { grid-template-columns: minmax(0, 1fr); } }
+.card { border: 1px solid var(--line); border-radius: 8px; padding: 14px 18px; display: grid; gap: 6px; align-content: start; }
+.card h3 { font-size: 1.05rem; }
+.card ul { list-style: none; padding: 0; gap: 2px; }
+
+.diagram { overflow-x: auto; }
+.diagram svg { display: block; width: 100%; min-width: 760px; height: auto; }
+.diagram.small svg { min-width: 640px; max-width: 60rem; }
+svg text { font-family: var(--f-body); fill: var(--fg); }
+svg .t { font-size: 15px; font-weight: 600; }
+svg .c { font-family: var(--f-mono); font-size: 12.5px; fill: var(--muted); }
+svg .lab { font-size: 13px; fill: var(--muted); }
+svg.big .lab { font-size: 18px; }
+svg .box-f { fill: var(--fwd); stroke: var(--fwd-b); }
+svg .box-i { fill: var(--inv); stroke: var(--inv-b); }
+svg .box-t { fill: var(--tst); stroke: var(--tst-b); }
+svg .box-s { fill: var(--soft); stroke: var(--line); }
+svg .ar { stroke: var(--muted); stroke-width: 1.6; fill: none; }
+svg .ar-a { stroke: var(--accent); stroke-width: 1.6; fill: none; }
+svg .ar-n { stroke: var(--head); stroke-width: 1.6; fill: none; }
+svg .hd { fill: var(--muted); } svg .hd-a { fill: var(--accent); } svg .hd-n { fill: var(--head); }
+.legend { font-size: 0.93rem; color: var(--muted); display: flex; flex-wrap: wrap; gap: 4px 18px; margin: 0; }
+.legend i { font-style: normal; font-weight: 600; }
+.legend .lf { color: var(--head); } .legend .li { color: var(--accent); } .legend .lt { color: var(--good); }
+
+.codes { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 6px 16px; max-width: 52rem; margin: 0; }
+.codes dt { font-family: var(--f-mono); font-weight: 500; color: var(--head); font-size: 0.92rem; padding-top: 2px; }
+.codes dd { margin: 0; }
+
+.tbl { overflow-x: auto; max-width: 100%; }
+table { border-collapse: collapse; font-size: 0.93rem; width: 100%; min-width: 560px; font-variant-numeric: tabular-nums; }
+th, td { text-align: left; vertical-align: top; padding: 7px 14px 7px 0; border-bottom: 1px solid var(--line); }
+th { color: var(--muted); font-weight: 600; border-bottom: 1.5px solid var(--fg); }
+thead tr:first-child th { border-top: 1.5px solid var(--fg); }
+tbody tr:last-child td { border-bottom: 1.5px solid var(--fg); }
+tr.mid th { border-top: 1px solid var(--line); padding-top: 12px; }
+td:first-child { white-space: nowrap; }
+.wrap1 td:first-child { white-space: normal; }
+
+.refs { display: grid; gap: 10px; }
+.cite { font-size: 0.93rem; color: var(--muted); max-width: 52rem; margin: 0; padding-left: 1.6em; text-indent: -1.6em; }
+.appendix { display: grid; grid-template-columns: minmax(0, 1fr); gap: 36px; }
+footer { color: var(--muted); font-size: 0.88rem; border-top: 1px solid var(--line); padding-top: 16px; }
+@media (prefers-reduced-motion: reduce) { * { scroll-behavior: auto !important; } }
+</style>
+
+<div class="page">
+
+</head>
+<body>
+<header>
+  <p class="eyebrow">FFF3D &middot; result report</p>
+  <h1>FFF3D: finite-fault inversion with 3-D strain Green&rsquo;s tensors</h1>
+  <div class="notice">
+    <strong>Pure synthetic test</strong>
+    <p>The fault and its slip are invented for this test and do not represent any real fault or earthquake. Only the 3-D velocity model is real: a recent Taiwan 3-D velocity model.</p>
+  </div>
+  <p class="lead">Waveforms at eight stations were computed for a known Mw&nbsp;6.5 thrust, the <em>reference source model</em>, with the TIFDM finite-difference code (<a href="#ref-zhang2006">Zhang &amp; Chen, 2006</a>; <a href="#ref-zhang2012">Zhang et al., 2012</a>), then inverted with FFF using strain Green&rsquo;s tensors (SGTs; <a href="#ref-zhao2006">Zhao et al., 2006</a>) computed in the same 3-D model. This 3-D SGT inversion is the method of <a href="#ref-hsieh2016">Hsieh et al. (2016)</a>, built on the FFF code of <a href="#ref-ji2002">Ji et al. (2002)</a> and first applied to the 2013 Ruisui, Taiwan, earthquake; the author has set up this test of it in the Taiwan 3-D model. The inversion recovers the reference source model:</p>
+  <ul class="keyline">
+    <li><b>0.96</b><span>slip correlation</span></li>
+    <li><b>1.02&times;</b><span>seismic moment</span></li>
+    <li><b>0.98</b><span>waveform correlation</span></li>
+    <li><b>0.96</b><span>variance reduction</span></li>
+  </ul>
+  <nav aria-label="Sections"><ul>
+    <li><a href="#purpose">Purpose</a></li><li><a href="#workflow">Workflow</a></li><li><a href="#tests">Verification tests</a></li>
+    <li><a href="#settings">Simulation settings</a></li><li><a href="#results">Results</a></li><li><a href="#references">References</a></li><li><a href="#appendix">Appendix</a></li>
+  </ul></nav>
+  <p class="hint">Click any figure to enlarge it; press Esc or click again to close.</p>
+</header>
+
+<!-- ============================================================ purpose -->
+<section id="purpose">
+  <h2>Purpose</h2>
+  <div class="split">
+    <div class="prose">
+      <ul>
+        <li>Use one 3-D model for both the data and the Green&rsquo;s functions, so that any misfit comes from the inversion and not from the Earth model.</li>
+        <li>Test whether the FFF 3-D workflow of <a href="#ref-hsieh2016">Hsieh et al. (2016)</a> (SGT Green&rsquo;s functions and 3-D travel times) recovers a known slip distribution.</li>
+        <li>Verify the grid spacing and the source scaling of the finite-difference runs first.</li>
+      </ul>
+      <p>Setting: Mw&nbsp;6.5 thrust (strike 20&deg;, dip 45&deg; east, rake 90&deg;) under the Chiayi&ndash;Tainan plain, eight stations at 12&ndash;47&nbsp;km in eight azimuths, no noise.</p>
+    </div>
+    <figure>
+      <div class="plate"><img src="fig/overview.jpg" alt="3-D relief of west-central Taiwan with the fault projection, epicentre and eight stations" width="1536" height="972"></div>
+      <figcaption>Fault surface projection (orange), epicentre (red star) and stations S01&ndash;S08 (yellow), from the velocity-model animation.</figcaption>
+    </figure>
+  </div>
+  
+</section>
+
+<!-- ============================================================ workflow -->
+<section id="workflow">
+  <h2>Workflow</h2>
+  <div class="diagram">
+    <svg viewBox="0 0 1000 384" role="img" aria-label="Workflow: velocity model, reference source model, FD forward run and data on the forward side; SGTs, travel times, Green's functions, inversion and comparison on the inversion side">
+      <defs>
+        <marker id="m" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="hd" d="M0 0L10 5L0 10z"/></marker>
+        <marker id="ma" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="hd-a" d="M0 0L10 5L0 10z"/></marker>
+      </defs>
+      <!-- row 0: tests -->
+      <rect class="box-t" x="10" y="6" width="172" height="48" rx="7"/>
+      <text class="t" x="96" y="27" text-anchor="middle">Verification tests</text><text class="c" x="96" y="45" text-anchor="middle">TIFDM</text>
+      <!-- row 1: forward side -->
+      <rect class="box-f" x="10" y="110" width="172" height="74" rx="7"/>
+      <text class="t" x="96" y="140" text-anchor="middle">Velocity model</text><text class="c" x="96" y="162" text-anchor="middle">TIFDM model tools</text>
+      <rect class="box-f" x="212" y="110" width="172" height="74" rx="7"/>
+      <text class="t" x="298" y="140" text-anchor="middle">Reference source</text><text class="t" x="298" y="158" text-anchor="middle">model</text><text class="c" x="298" y="176" text-anchor="middle">make_subf &middot; Python</text>
+      <rect class="box-f" x="414" y="110" width="172" height="74" rx="7"/>
+      <text class="t" x="500" y="140" text-anchor="middle">FD forward run</text><text class="c" x="500" y="162" text-anchor="middle">TIFDM</text>
+      <rect class="box-i" x="616" y="110" width="172" height="74" rx="7"/>
+      <text class="t" x="702" y="140" text-anchor="middle">Data, 2.75-s Gaussian</text><text class="c" x="702" y="162" text-anchor="middle">SAC &middot; FFF rsac_helm</text>
+      <!-- row 2: inversion side -->
+      <rect class="box-i" x="10" y="270" width="172" height="74" rx="7"/>
+      <text class="t" x="96" y="300" text-anchor="middle">SGTs, 24 runs</text><text class="c" x="96" y="322" text-anchor="middle">TIFDM</text>
+      <rect class="box-i" x="212" y="270" width="172" height="74" rx="7"/>
+      <text class="t" x="298" y="300" text-anchor="middle">Travel times</text><text class="c" x="298" y="322" text-anchor="middle">PUNCH (TXDB)</text>
+      <rect class="box-i" x="414" y="270" width="172" height="74" rx="7"/>
+      <text class="t" x="500" y="300" text-anchor="middle">Green&rsquo;s functions</text><text class="c" x="500" y="322" text-anchor="middle">FFF mult_single_3d</text>
+      <rect class="box-i" x="616" y="270" width="172" height="74" rx="7"/>
+      <text class="t" x="702" y="300" text-anchor="middle">Inversion</text><text class="c" x="702" y="322" text-anchor="middle">FFF inv_three_as_r</text>
+      <rect class="box-i" x="818" y="270" width="172" height="74" rx="7"/>
+      <text class="t" x="904" y="300" text-anchor="middle">Comparison</text><text class="c" x="904" y="322" text-anchor="middle">Python &middot; MATLAB</text>
+      <!-- arrows -->
+      <path class="ar" d="M96 54V108" marker-end="url(#m)"/>
+      <path class="ar" d="M182 147H210" marker-end="url(#m)"/><path class="ar" d="M384 147H412" marker-end="url(#m)"/><path class="ar" d="M586 147H614" marker-end="url(#m)"/>
+      <path class="ar" d="M96 184V268" marker-end="url(#m)"/>
+      <path class="ar" d="M150 184L280 268" marker-end="url(#m)"/>
+      <path class="ar" d="M384 307H412" marker-end="url(#m)"/>
+      <path class="ar" d="M96 344V368H470V346" marker-end="url(#m)"/>
+      <path class="ar" d="M586 307H614" marker-end="url(#m)"/><path class="ar" d="M788 307H816" marker-end="url(#m)"/>
+      <path class="ar" d="M702 184V268" marker-end="url(#m)"/>
+      <path class="ar-a" d="M298 110V84H904V268" stroke-dasharray="6 5" marker-end="url(#ma)"/>
+    </svg>
+  </div>
+  <p class="legend"><span><i class="lf">Blue</i> makes the synthetic data</span><span><i class="li">Orange</i> inversion side</span><span><i class="lt">Green</i> checks before the production runs</span><span>Dashed: the reference slip is used only in the final comparison</span></p>
+  <dl class="codes">
+    <dt>TIFDM</dt><dd>3-D collocated-grid finite-difference code on a curvilinear grid that follows the topography, with the traction-image free surface (<a href="#ref-zhang2006">Zhang &amp; Chen, 2006</a>; <a href="#ref-zhang2012">Zhang et al., 2012</a>). Runs the forward simulation and the 24 SGT simulations; its model tools build the 250&nbsp;m grid and media.</dd>
+    <dt>PUNCH</dt><dd>Finite-difference first-arrival travel times (<a href="#ref-vidale">Vidale, 1988, 1990</a>) in the 3-D Vp model, stored as the TXDB table; used to place the data windows and to align the Green&rsquo;s functions.</dd>
+    <dt>FFF</dt><dd>Finite-fault inversion package: <code>fsub_r</code> lays out the sub-fault grids, <code>mult_single_3d</code> builds Green&rsquo;s functions from the SGTs by reciprocity (<a href="#ref-zhao2006">Zhao et al., 2006</a>), <code>inv_three_as_r</code> inverts for slip, rake, rupture velocity and slip-rate shape on every sub-fault; <code>rsac_helm</code> convolves the data with the 2.75-s Gaussian.</dd>
+    <dt>make_subf</dt><dd>Lays out the fault as a 1-km grid of FD point sources with rupture times (position, rupture time, moment, mechanism); a Python script then sets the slip (a random k<sup>&minus;2</sup> field with asperities).</dd>
+  </dl>
+</section>
+
+<!-- ============================================================ animation 1 -->
+<section id="animation-model" aria-label="Animation of the velocity model">
+  <h3>Animation: velocity model and test fault</h3>
+  <figure class="vid-wide">
+    <video data-inline controls preload="metadata" playsinline poster="media/poster_velmodel.jpg" width="1280" height="720"><source src="media/velmodel.mp4" type="video/mp4"></video>
+    <figcaption>Vp and Vs in the 120 &times; 120 &times; 40&nbsp;km model: depth slices, north&ndash;south and east&ndash;west sections, and the fault plane coloured by reference slip. Contours in km/s; white line = Moho (Vp 7.2&nbsp;km/s). 95.5&nbsp;s.</figcaption>
+  </figure>
+</section>
+
+<!-- ============================================================ tests -->
+<section id="tests">
+  <h2>Verification tests</h2>
+  <p class="eyebrow">FD sources, reciprocity and the SGT workflow</p>
+  <div class="tbl" style="max-width:52rem">
+    <table>
+      <thead><tr><th>Test</th><th>Conclusion</th></tr></thead>
+      <tbody>
+        
+        <tr><td>Analytic solutions</td><td>FD single forces and moment sources are correct (homogeneous half-space)</td></tr>
+        <tr><td>Reciprocity</td><td>SGTs are correct; a single force at the free surface in the forward build comes out 1.45&times; too large (not used here)</td></tr>
+        <tr><td>Full SGT workflow</td><td>SGT/FD amplitude 1.05&ndash;1.10 on a 500&nbsp;m grid, explained by the FD source smoothing</td></tr>
+        
+      </tbody>
+    </table>
+  </div>
+
+  
+
+  
+</section>
+
+<!-- ============================================================ settings -->
+<section id="settings">
+  <h2>Simulation settings</h2>
+  <div class="cards">
+    <div class="card"><h3>Velocity model</h3><ul>
+      <li>Taiwan 3-D model on a 250&nbsp;m FD grid</li><li>120 &times; 120 &times; 40&nbsp;km with ASTER topography</li><li><var>V</var><sub>S</sub> &ge; 1.2&nbsp;km/s; dt 0.0175&nbsp;s, 70&nbsp;s</li><li><var>Q</var><sub>S</sub> = 0.1&nbsp;<var>V</var><sub>S</sub>, <var>Q</var><sub>P</sub> = <var>Q</var><sub>S</sub>: an assumption, <a href="#attenuation">see below</a></li></ul></div>
+    <div class="card"><h3>Reference source model</h3><ul>
+      <li>30 &times; 15&nbsp;km thrust, top at 2&nbsp;km depth</li><li>1-km grid: 450 grid points, one FD point source each</li><li><var>M</var><sub>0</sub> 7.3 &times; 10<sup>18</sup>&nbsp;N&nbsp;m (Mw 6.5); <var>V</var><sub>r</sub> 2.8&nbsp;km/s; 2.0-s Gaussian slip rate</li></ul></div>
+    <div class="card"><h3>SGTs</h3><ul>
+      <li>8 stations &times; 3 forces = 24 TIFDM runs</li><li>2.75-s Gaussian; stored on a 500&nbsp;m grid</li><li>2.2&nbsp;h per run on 48 cores; 34&nbsp;GB in total</li></ul></div>
+    <div class="card"><h3>Inversion (FFF)</h3><ul>
+      <li>16 &times; 8 sub-faults of 2&nbsp;km</li><li>3 &times; 3 sub-fault grids per sub-fault (1152 in total)</li><li>60-s window; slip smoothing 0.20; 500 iterations</li></ul></div>
+  </div>
+
+  <div class="sub" id="attenuation">
+    <h3>Attenuation: an assumption beyond the velocity model</h3>
+    <div class="prose">
+      <p>The velocity model gives <var>V</var><sub>P</sub> and <var>V</var><sub>S</sub> only. Attenuation in the FD runs follows an empirical rule, not the tomography: <var>Q</var><sub>S</sub> = 0.1&nbsp;<var>V</var><sub>S</sub> (<var>V</var><sub>S</sub> in m/s), reduced to 0.02&nbsp;<var>V</var><sub>S</sub> where <var>V</var><sub>S</sub> &lt; 1.5&nbsp;km/s, which gives <var>Q</var><sub>S</sub> &asymp; 24&ndash;30 in the slowest layers and 150&ndash;490 elsewhere. The FD code applies attenuation as one damping factor exp(&minus;&pi;<var>f</var><sub>0</sub>&Delta;<var>t</var>/<var>Q</var><sub>S</sub>) to all stress and velocity components at every time step (<a href="#ref-graves1996">Graves, 1996</a>), so P and S waves are damped alike (<var>Q</var><sub>P</sub> = <var>Q</var><sub>S</sub>) and the nominal <var>Q</var> holds at the reference frequency <var>f</var><sub>0</sub> = 1&nbsp;Hz only: at a frequency <var>f</var> the effective <var>Q</var> is <var>Q</var><sub>S</sub>&nbsp;<var>f</var>/<var>f</var><sub>0</sub>, one fifth of the nominal value at 0.2&nbsp;Hz, so the medium is damped more strongly at the periods of the inversion than the numbers above suggest.</p>
+      <p>The &ldquo;observations&rdquo; and the SGTs are computed with the same <var>Q</var>, so the test is self-consistent, and reciprocity holds in a linear viscoelastic medium (the point-source recovery test below confirms it numerically). In an application to real data this <var>Q</var> model would enter the amplitudes, and hence the slip and moment estimates, and should be treated as a choice separate from the velocity model.</p>
+    </div>
+  </div>
+
+  <div class="sub">
+    <h3>Source design: forward grid and inversion sub-faults</h3>
+    <figure>
+      <div class="plate"><img src="fig/w_design.png" alt="Fault plane with the 1-km reference-model grid, 2-km sub-faults and a close-up of the 3 by 3 sub-fault grids" width="2000" height="772"></div>
+      <figcaption>Forward: every 1-km grid point of the reference source model is one FD point source. Inversion: 2-km sub-faults, each with 3 &times; 3 sub-fault grids at which FFF computes Green&rsquo;s functions.</figcaption>
+    </figure>
+  </div>
+
+  <div class="sub">
+    <h3>Reference source model</h3>
+    <figure>
+      <div class="plate"><img src="fig/w_true1km.png" alt="Slip of the reference source model on the 1-km grid with rake arrows" width="2000" height="881"></div>
+      <figcaption>Slip on the 1-km grid, moment &divide; (3-D rigidity &times; area), maximum 3.36&nbsp;m. Arrows: rake (90&deg;), length &prop; slip. Red star: hypocentre.</figcaption>
+    </figure>
+  </div>
+
+  <div class="sub">
+    <h3>FD forward &ldquo;observations&rdquo;</h3>
+    <figure>
+      <div class="plate"><img src="fig/w_recsec_raw.png" alt="Record section of the raw FD velocity waveforms at eight stations" width="2000" height="892"></div>
+      <figcaption>Velocity at the eight stations from the TIFDM forward run, unfiltered, sorted by distance. Red +: P arrival from the PUNCH travel-time table (TXDB), right at the P onset.</figcaption>
+    </figure>
+  </div>
+
+  <div class="sub">
+    <h3>Input data of the inversion</h3>
+    <figure>
+      <div class="plate"><img src="fig/w_recsec_obs.png" alt="Record section of the data after the 2.75-s Gaussian" width="2000" height="892"></div>
+      <figcaption>The same waveforms after convolution with the 2.75-s Gaussian. The 60-s inversion window starts at the red +.</figcaption>
+    </figure>
+    <div class="prose">
+      <p><strong>Why convolve the data with a 2.75-s Gaussian?</strong></p>
+      <ol>
+        <li><strong>Same band as the Green&rsquo;s functions.</strong> The SGTs were computed with a single force whose time function is a 2.75-s Gaussian, so every Green&rsquo;s function already carries this filter. Applying the same Gaussian to the data puts data and synthetics in the same band: the inversion fits data &otimes; <var>G</var> with slip rate &otimes; Green&rsquo;s function &otimes; <var>G</var>, and the slip-rate function stays a pure source property.</li>
+        <li><strong>Removes what the grid cannot carry.</strong> With <var>V</var><sub>S,min</sub> = 1.2&nbsp;km/s the 250&nbsp;m grid has 10 grid points per wavelength up to 0.48&nbsp;Hz. The raw FD data have 1&ndash;14% of their energy above 0.48&nbsp;Hz (most at the nearest station, S01); after the Gaussian, at most 0.7%.</li>
+        <li><strong>Matches what the inversion can resolve.</strong> Eight stations and 2-km sub-faults cannot constrain shorter-period detail, so keeping it would only add misfit that no slip model can explain.</li>
+      </ol>
+      <p>The two Gaussians have different roles: the 2.0-s Gaussian is the physical slip-rate function of each grid point of the reference source model; the 2.75-s Gaussian is a processing filter shared by the data and the Green&rsquo;s functions.</p>
+    </div>
+  </div>
+
+  <div class="sub">
+    <h3>Point-source recovery test</h3>
+    <div class="prose">
+      <p>One point source is placed at an SGT storage grid point. Its waveforms are computed twice: directly with TIFDM (black) and by reciprocity from the SGTs (<a href="#ref-zhao2006">Zhao et al., 2006</a>), the way FFF builds Green&rsquo;s functions (red dashed). Eight stations &times; three components are compared.</p>
+    </div>
+    <figure>
+      <div class="plate"><img src="fig/w_recsec_calib.png" alt="Record section comparing direct FD and SGT reciprocity waveforms for one point source" width="2000" height="892"></div>
+    </figure>
+    <div class="stats three">
+      <div class="stat"><span class="v">0</span><span class="k">lag (samples)</span><span class="d">Time shift that maximises the cross-correlation of the two waveforms: 0 for all 24 traces (one sample = 0.28&nbsp;s).</span></div>
+      <div class="stat"><span class="v">0.997</span><span class="k">lowest correlation</span><span class="d">Smallest zero-lag correlation coefficient among the 24 traces; most are 1.000.</span></div>
+      <div class="stat"><span class="v">1.03</span><span class="k">SGT/FD amplitude</span><span class="d">Peak |velocity| of the SGT waveform &divide; that of the direct FD waveform, mean of 24 traces (0.99&ndash;1.07).</span></div>
+    </div>
+    <p class="take">The SGT Green&rsquo;s functions reproduce direct FD in timing and shape. The extra 3% in amplitude is the FD moment-source smoothing (375&nbsp;m), as predicted.</p>
+  </div>
+</section>
+
+<!-- ============================================================ results -->
+<section id="results">
+  <h2>Results</h2>
+  <p class="eyebrow">Can the inversion recover the reference source model?</p>
+  <div class="diagram small">
+    <svg viewBox="0 0 1000 196" role="img" aria-label="Reference model, FD forward to observed waveforms, FFF inversion to inverted model; slip and moment compared between reference and inverted models; waveforms compared between synthetics and observed">
+      <defs>
+        <marker id="r1" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="hd" d="M0 0L10 5L0 10z"/></marker>
+        <marker id="r2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="hd-n" d="M0 0L10 5L0 10z"/></marker>
+        <marker id="r3" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="hd-a" d="M0 0L10 5L0 10z"/></marker>
+      </defs>
+      <rect class="box-s" x="20" y="70" width="250" height="56" rx="7"/><text class="t" x="145" y="103" text-anchor="middle">Reference source model</text>
+      <rect class="box-s" x="375" y="70" width="250" height="56" rx="7"/><text class="t" x="500" y="103" text-anchor="middle">Observed waveforms</text>
+      <rect class="box-s" x="730" y="70" width="250" height="56" rx="7"/><text class="t" x="855" y="103" text-anchor="middle">Inverted model</text>
+      <path class="ar" d="M272 98H373" marker-end="url(#r1)"/><text class="lab" x="322" y="90" text-anchor="middle">TIFDM forward</text>
+      <path class="ar" d="M627 98H728" marker-end="url(#r1)"/><text class="lab" x="677" y="90" text-anchor="middle">FFF inversion</text>
+      <path class="ar-n" d="M145 128V156H855V128" marker-start="url(#r2)" marker-end="url(#r2)"/><text x="500" y="180" text-anchor="middle" font-size="14" style="fill:var(--head)">compare slip and <tspan font-style="italic">M</tspan><tspan font-size="10" dy="3">0</tspan></text>
+      <path class="ar-a" d="M500 68V40H855V68" marker-start="url(#r3)" marker-end="url(#r3)"/><text x="677" y="28" text-anchor="middle" font-size="14" style="fill:var(--accent)">compare waveforms (synthetics vs observed)</text>
+    </svg>
+  </div>
+  <div class="stats">
+    <div class="stat"><span class="who n">inverted vs reference</span><span class="v">0.96</span><span class="k">slip correlation</span><span class="d">Pearson correlation of slip on the 128 sub-faults; the reference is first averaged onto the same 2-km sub-faults.</span></div>
+    <div class="stat"><span class="who n">inverted &divide; reference</span><span class="v">1.02&times;</span><span class="k">seismic moment</span><span class="d"><var>M</var><sub>0</sub> 7.48 vs 7.30 &times; 10<sup>18</sup>&nbsp;N&nbsp;m, both with the 3-D rigidity.</span></div>
+    <div class="stat"><span class="who a">synthetics vs observed</span><span class="v">0.98</span><span class="k">waveform correlation</span><span class="d">Mean correlation coefficient of the 24 traces (8 stations &times; 3 components) in the 60-s window; lowest 0.93.</span></div>
+    <div class="stat"><span class="who a">synthetics vs observed</span><span class="v">0.96</span><span class="k">variance reduction</span><span class="d">1 &minus; &Sigma;(obs &minus; syn)&sup2; &divide; &Sigma;obs&sup2;, mean of the 24 traces; lowest 0.85.</span></div>
+  </div>
+  <p class="take">The main asperity is recovered in position and size; rupture times are 0.34&nbsp;s late on average.</p>
+
+  <div class="sub">
+    <h3>Slip and rake: original, averaged, inverted</h3>
+    <figure class="wide-fig">
+      <div class="plate"><img src="fig/w_slip3.png" alt="Three slip maps: reference on the 1-km grid, reference averaged onto 2-km sub-faults, and the inversion" width="2000" height="363"></div>
+    </figure>
+    <p class="figcap">(a) The reference source model on its 1-km grid, the input of the FD forward run. (b) The same model averaged onto the 2-km sub-faults (area weights 1, &frac12;, &frac12;), the best the inversion can recover. (c) The inversion. One colour scale and one arrow scale for all panels: arrow = rake, length &prop; slip, 100&nbsp;cm key at top left. White dashed line: extent of the reference fault (30 &times; 15&nbsp;km). Red star: hypocentre.</p>
+    <p class="take">The main asperity is recovered in position and size (peak 286 vs 272&nbsp;cm, 2&nbsp;km apart). The smaller, deeper asperity to the south is smeared into a broad band.</p>
+  </div>
+
+  <div class="sub">
+    <h3>Rupture initiation time: original, averaged, inverted</h3>
+    <figure class="wide-fig">
+      <div class="plate"><img src="fig/w_rt3.png" alt="Three maps of rupture initiation time as white contours over slip: reference on the 1-km grid, reference averaged onto 2-km sub-faults, and the inversion" width="2000" height="362"></div>
+    </figure>
+    <p class="figcap">White contours: time after origin at which slip starts, every 1&nbsp;s, over slip on the same panels and colour scale as above. (a) Every 1-km grid point of the reference source model starts when the rupture front reaches it: distance from the hypocentre &divide; 2.8&nbsp;km/s. (b) Slip-weighted mean of the same grid points over each 2-km sub-fault. (c) The inversion: onset of the slip-rate function at the sub-fault centre, i.e. the 2.8&nbsp;km/s front plus the time shift inverted for each sub-fault. Red star: hypocentre.</p>
+    <p class="take">The inverted rupture front keeps the circular shape of the reference. The time shifts come in steps of one sample (0.28&nbsp;s); 115 of 128 sub-faults are shifted by 0&ndash;0.56&nbsp;s, so the inverted front runs slightly late almost everywhere (map of the difference below).</p>
+  </div>
+
+  <div class="sub">
+    <h3>Rupture time and source time function</h3>
+    <figure>
+      <div class="plate"><img src="fig/w_rt_stf.png" alt="Map of rupture-time difference and moment-rate functions of the reference and inverted models" width="2000" height="546"></div>
+      <figcaption>Left: rupture time, inverted &minus; reference, on sub-faults with reference slip &gt; 20% of the peak (mean +0.34&nbsp;s, rms 0.44&nbsp;s). Right: moment-rate functions after the 2.75-s Gaussian. The centroids differ by 0.1&nbsp;s: rupture time trades off against rise time; it is not a grid effect.</figcaption>
+    </figure>
+  </div>
+
+  <div class="sub">
+    <h3>Waveform fit</h3>
+    <figure>
+      <div class="plate"><img src="fig/w_recsec_fit.png" alt="Record section of observed waveforms and synthetics of the inverted model" width="2000" height="892"></div>
+      <figcaption>Black: observed, after the 2.75-s Gaussian. Red: synthetics of the inverted model. Mean correlation 0.983, variance reduction 0.961.</figcaption>
+    </figure>
+  </div>
+
+  <div class="sub">
+    <h3>Slip rate of every sub-fault</h3>
+    <figure>
+      <div class="plate"><img src="fig/w_sliprate.png" alt="Slip-rate functions drawn in every 2-km sub-fault for the reference and inverted models" width="2000" height="517"></div>
+      <figcaption>Slip-rate function of every 2-km sub-fault (white curves, one amplitude scale) over slip, on the same colour scale as the slip maps above. The inverted pulses are narrower, higher and later than the reference; within the data band the two are equivalent.</figcaption>
+    </figure>
+  </div>
+
+  <div class="sub">
+    <h3>Animation: slip evolution on the fault</h3>
+    <figure>
+      <video data-inline controls preload="metadata" playsinline poster="media/poster_slip.jpg" width="1600" height="900"><source src="media/slip_evolution.mp4" type="video/mp4"></video>
+      <figcaption>Left: reference source model on its 1-km grid (3-D rigidity). Right: inversion on the 2-km sub-faults. Bottom: moment rate, reference (black) and inverted (red), with a time cursor. Arrows show rake, length = cumulative slip; the last frame holds the total slip. 25&nbsp;s.</figcaption>
+    </figure>
+  </div>
+
+  <div class="sub">
+    <h3>Conclusions</h3>
+    <ul class="prose" style="padding-left:1.3em">
+      <li>FFF recovers the reference slip from the waveforms: slip correlation 0.96, <var>M</var><sub>0</sub> within 2%.</li>
+      <li>SGT amplitudes are correct.</li>
+      <li>The slip-rate shape trades off with rupture time; the small, deeper asperity is smoothed out.</li>
+    </ul>
+  </div>
+</section>
+
+<!-- ============================================================ references -->
+<section id="references">
+  <h2>References</h2>
+  <div class="refs">
+    <p class="cite" id="ref-graves1996">Graves, R. W. (1996). Simulating seismic wave propagation in 3D elastic media using staggered-grid finite differences. <i>Bulletin of the Seismological Society of America</i>, 86(4), 1091&ndash;1106. <a href="https://doi.org/10.1785/BSSA0860041091">https://doi.org/10.1785/BSSA0860041091</a></p>
+    <p class="cite" id="ref-hsieh2016">Hsieh, M.-C., Zhao, L., Ji, C., &amp; Ma, K.-F. (2016). Efficient inversions for earthquake slip distributions in 3D structures. <i>Seismological Research Letters</i>, 87(6), 1342&ndash;1354. <a href="https://doi.org/10.1785/0220160050">https://doi.org/10.1785/0220160050</a></p>
+    <p class="cite" id="ref-ji2002">Ji, C., Wald, D. J., &amp; Helmberger, D. V. (2002). Source description of the 1999 Hector Mine, California, earthquake, part I: Wavelet domain inversion theory and resolution analysis. <i>Bulletin of the Seismological Society of America</i>, 92(4), 1192&ndash;1207. <a href="https://doi.org/10.1785/0120000916">https://doi.org/10.1785/0120000916</a></p>
+    
+    <p class="cite" id="ref-vidale">Vidale, J. (1988). Finite-difference calculation of travel times. <i>Bulletin of the Seismological Society of America</i>, 78(6), 2062&ndash;2076.</p>
+    <p class="cite">Vidale, J. E. (1990). Finite-difference calculation of traveltimes in three dimensions. <i>Geophysics</i>, 55(5), 521&ndash;526. <a href="https://doi.org/10.1190/1.1442863">https://doi.org/10.1190/1.1442863</a></p>
+    <p class="cite" id="ref-zhang2006">Zhang, W., &amp; Chen, X. (2006). Traction image method for irregular free surface boundaries in finite difference seismic wave simulation. <i>Geophysical Journal International</i>, 167(1), 337&ndash;353. <a href="https://doi.org/10.1111/j.1365-246X.2006.03113.x">https://doi.org/10.1111/j.1365-246X.2006.03113.x</a></p>
+    <p class="cite" id="ref-zhang2012">Zhang, W., Zhang, Z., &amp; Chen, X. (2012). Three-dimensional elastic wave numerical modelling in the presence of surface topography by a collocated-grid finite-difference method on curvilinear grids. <i>Geophysical Journal International</i>, 190(1), 358&ndash;378. <a href="https://doi.org/10.1111/j.1365-246X.2012.05472.x">https://doi.org/10.1111/j.1365-246X.2012.05472.x</a></p>
+    <p class="cite" id="ref-zhao2006">Zhao, L., Chen, P., &amp; Jordan, T. H. (2006). Strain Green&rsquo;s tensors, reciprocity, and their applications to seismic source and structure studies. <i>Bulletin of the Seismological Society of America</i>, 96(5), 1753&ndash;1763. <a href="https://doi.org/10.1785/0120050253">https://doi.org/10.1785/0120050253</a></p>
+  </div>
+</section>
+
+<!-- ============================================================ appendix -->
+<section id="appendix">
+  <h2>Appendix</h2>
+  <p class="eyebrow">Detailed settings</p>
+  <div class="appendix">
+
+    <div class="sub">
+      <h3>A. Programs and directories</h3>
+      <div class="tbl"><table class="wrap1">
+        <thead><tr><th>Directory</th><th>Stage</th><th>Main programs</th></tr></thead>
+        <tbody>
+          <tr><td><code>01_model_250m</code></td><td>Velocity model</td><td><code>build_model.sh</code>, <code>make_vmap.m</code>; TIFDM <code>seis3d_grid</code>, <code>seis3d_media</code>, <code>seis3d_metric</code></td></tr>
+          <tr><td><code>02_fault_sta</code></td><td>Reference source model, stations</td><td><code>make_subf</code>, slip generator (Python)</td></tr>
+          <tr><td><code>03_forward</code></td><td>FD forward run</td><td><code>make_case_250m.sh</code>; TIFDM <code>seis3d_wave_mpi</code></td></tr>
+          <tr><td><code>04_sgt_250m</code></td><td>SGTs, point-source recovery test</td><td><code>gen_sgt_jobs.pl</code>, <code>run_all.sh</code>, <code>chk_sgt.sh</code>, <code>calib/run_calib.sh</code></td></tr>
+          <tr><td><code>05_txdb</code></td><td>Travel times</td><td><code>write_vp_out.py</code>; PUNCH <code>punch_bat_volume.pl</code></td></tr>
+          <tr><td><code>06_data</code></td><td>Data</td><td><code>vel2sac.sh</code>; FFF <code>batch_get_inp.pl</code></td></tr>
+          <tr><td><code>07_inversion</code></td><td>Inversion</td><td>FFF <code>fsub_r</code>, <code>mult_single_3d</code>, <code>inv_three_as_r</code></td></tr>
+          <tr><td><code>08_plots</code></td><td>Comparison and figures</td><td><code>compare_slip.py</code>, <code>plot_figs.m</code>, <code>plot_web_figs.m</code>, <code>plot_recsec.m</code>, <code>anim_slip.m</code></td></tr>
+          <tr><td><code>09_anim</code></td><td>Velocity-model animation</td><td><code>make_vtk_fff.py</code>, <code>pv_anim_fff.py</code> (ParaView), <code>render_slurm.sh</code></td></tr>
+          
+          <tr><td><code>12_homog_test</code></td><td>Analytic, reciprocity and shallow-source tests</td><td><code>analytic.py</code>, <code>compare_shallow.py</code></td></tr>
+          <tr><td><code>13_artifact</code></td><td>This page</td><td><code>index.html</code></td></tr>
+        </tbody>
+      </table></div>
+    </div>
+
+    <div class="sub">
+      <h3>B. Model, forward run and SGTs</h3>
+      <div class="tbl"><table>
+        <thead><tr><th>Item</th><th>Setting</th></tr></thead>
+        <tbody>
+          <tr><td>Grid</td><td>480 &times; 480 &times; 161 grid points, 250&nbsp;m, terrain-following; 6 &times; 8 &times; 1 domains (48 cores); 24 absorbing-layer grid points</td></tr>
+          <tr><td>Media</td><td>Taiwan 3-D model, 2-km volume; <var>V</var><sub>S</sub> &ge; 1.2&nbsp;km/s, <var>V</var><sub>P</sub> &ge; &radic;2 <var>V</var><sub>S</sub>, &rho; = 0.33 <var>V</var><sub>P</sub> + 1200, <var>Q</var><sub>S</sub> = 0.1 <var>V</var><sub>S</sub></td></tr>
+          <tr><td>Topography</td><td>ASTER GDEM2 30&nbsp;m averaged to 0.0025&deg;, sea set to 0, smoothed</td></tr>
+          <tr><td>Time</td><td>stability limit 0.0233&nbsp;s &rarr; dt 0.0175&nbsp;s; output every 16 steps (0.28&nbsp;s); 4000 steps (70&nbsp;s)</td></tr>
+          <tr><td>Forward run</td><td>TIFDM forward build, source smoothing on; 450 moment sources, 2.0-s Gaussian; 1&nbsp;h 27&nbsp;min</td></tr>
+          <tr><td>SGTs</td><td>TIFDM SGT build; force 10<sup>20</sup>&nbsp;N, 2.75-s Gaussian; storage window 65 &times; 89 &times; 43 grid points at 500&nbsp;m</td></tr>
+          <tr><td>Point-source recovery</td><td>point source at an SGT storage grid point; lag 0, correlation 0.997&ndash;1.000, SGT/FD 0.99&ndash;1.07 (mean 1.03)</td></tr>
+          <tr><td>TXDB</td><td>PUNCH, 60 &times; 60 &times; 21 grid points at 2&nbsp;km</td></tr>
+        </tbody>
+      </table></div>
+    </div>
+
+    <div class="sub">
+      <h3>C. Inversion settings</h3>
+      <div class="tbl"><table>
+        <thead><tr><th>File</th><th>Setting</th></tr></thead>
+        <tbody>
+          <tr><td><code>Event_mult.in</code></td><td>16 &times; 8 sub-faults of 2&nbsp;km; strike 20, dip 45, rake 90; dt 0.28&nbsp;s, lnpt 10; <code>0.4 0.4 12</code>; <var>V</var><sub>r</sub> 2.8&nbsp;km/s; hypocentre sub-fault (8, 7)</td></tr>
+          <tr><td><code>fsub_r</code></td><td>1152 sub-fault grids (3 &times; 3 per sub-fault, spacing 0.67&nbsp;km)</td></tr>
+          <tr><td>Green&rsquo;s functions</td><td><code>mult_single_3d</code> reads the 250&nbsp;m SGTs; <code>Niu_model</code> = 3-D rigidity; <code>first.syn</code> = TXDB arrivals</td></tr>
+          <tr><td><code>HEAT.IN</code></td><td><code>500 -7 5 7.30e+25 90</code>; slip smoothing 0.20</td></tr>
+          <tr><td><code>bound.in</code></td><td>slip 0&ndash;400&nbsp;cm; rake 60&ndash;120&deg;; <var>V</var><sub>r</sub> 1.5&ndash;3.5&nbsp;km/s</td></tr>
+          <tr><td>Data</td><td><code>rsac_helm</code> convolves with the 2.75-s Gaussian; 60-s window from the TXDB arrival; all weights 1</td></tr>
+        </tbody>
+      </table></div>
+    </div>
+
+    <div class="sub">
+      <h3>D. Source-design formulas</h3>
+      <ul class="prose" style="padding-left:1.3em">
+        <li>Moment of a reference grid point: <var>m</var><sub>0,<var>ij</var></sub> = <var>&mu;</var> <var>D</var><sub><var>ij</var></sub> <var>dh</var><sup>2</sup> (defined with <var>&mu;</var> = 3.3 &times; 10<sup>10</sup>&nbsp;Pa); rupture time |<b>x</b><sub><var>ij</var></sub> &minus; <b>x</b><sub>hyp</sub>| / <var>V</var><sub>r</sub>.</li>
+        <li>Sub-fault grid spacing: &Delta;<var>x</var> = &Delta;<var>t</var><sub>a</sub> <var>V</var><sub>r</sub> / &radic;2 = 0.79&nbsp;km &rarr; <var>n</var><sub><var>x</var></sub> = 3, &delta;<var>x</var> = 0.67&nbsp;km.</li>
+        <li>Sub-fault size: <var>V</var><sub>S,src</sub> / (4 <var>f</var><sub>max</sub>) &le; <var>d</var> &le; <var>V</var><sub>r</sub> / (2 <var>f</var><sub>max</sub>), i.e. 2.6&ndash;4.7&nbsp;km at 0.3&nbsp;Hz.</li>
+        <li>Resolvable frequency of the FD grid: <var>f</var><sub>max</sub> = <var>V</var><sub>S,min</sub> / (<var>n</var><sub>ppw</sub> <var>h</var>); FD source depth &ge; 3 <var>h</var>.</li>
+        <li>Comparison: 1-km grid points area-weighted (1, &frac12;, &frac12;) onto the 2-km sub-faults; slip computed with the 3-D rigidity.</li>
+      </ul>
+    </div>
+
+    <div class="sub">
+      <h3>E. Full metrics, inverted vs reference</h3>
+      <div class="tbl"><table class="wrap1">
+        <thead><tr><th>Quantity</th><th>Reference</th><th>Inverted</th></tr></thead>
+        <tbody>
+          <tr><td><var>M</var><sub>0</sub></td><td>7.30 &times; 10<sup>18</sup>&nbsp;N&nbsp;m</td><td>7.48 &times; 10<sup>18</sup>&nbsp;N&nbsp;m (1.024&times;)</td></tr>
+          <tr><td>Maximum slip on 2-km sub-faults</td><td>272&nbsp;cm (336&nbsp;cm on the 1-km grid)</td><td>286&nbsp;cm</td></tr>
+          <tr><td>Maximum-slip sub-fault (along strike, down dip)</td><td>17, 5&nbsp;km</td><td>19, 5&nbsp;km (2&nbsp;km off)</td></tr>
+          <tr><td>Slip-weighted mean rake</td><td>90&deg;</td><td>90.1&deg;</td></tr>
+          <tr class="mid"><th>Comparison</th><th colspan="2">Value</th></tr>
+          <tr><td>Slip correlation (128 sub-faults)</td><td colspan="2">0.961</td></tr>
+          <tr><td>Moment-density correlation (128 sub-faults)</td><td colspan="2">0.948</td></tr>
+          <tr><td>Rupture time, inverted &minus; reference (75 sub-faults)</td><td colspan="2">mean +0.34&nbsp;s, rms 0.44&nbsp;s</td></tr>
+          <tr><td>Waveforms, synthetics vs observed (24 traces)</td><td colspan="2">correlation mean 0.983, min 0.931; variance reduction mean 0.961, min 0.854</td></tr>
+        </tbody>
+      </table></div>
+      <p class="cite" style="padding-left:0;text-indent:0">Slip = moment &divide; (3-D rigidity &times; area), area-weighted onto the 2-km sub-faults. Rupture times are compared where the reference slip exceeds 20% of its peak.</p>
+    </div>
+
+    <div class="sub">
+      <h3>F. Fixes and pitfalls</h3>
+      <div class="tbl"><table>
+        <thead><tr><th>Where</th><th>What</th></tr></thead>
+        <tbody>
+          <tr><td>TIFDM builds</td><td>forward build: a single force at the free surface comes out 1.45&times;; SGT build is correct but writes no station waveforms</td></tr>
+          
+          <tr><td>Comparison</td><td>slip with the 3-D rigidity; area-weighted averaging; synthetic sample 1 &harr; observed sample nTn</td></tr>
+          <tr><td>Workflow script</td><td>copy <code>Readlp.inf</code> before <code>mult_single_3d</code>; stop explicitly when a program fails</td></tr>
+          <tr><td>Slurm and NFS</td><td>poll DONE markers; animation arrays may miss frames, fill them before encoding</td></tr>
+        </tbody>
+      </table></div>
+    </div>
+  </div>
+</section>
+
+<footer>FFF3D &middot; finite-fault inversion with 3-D strain Green&rsquo;s tensors &middot; synthetic test in a Taiwan 3-D velocity model</footer>
+</div>
+<script>
+/* The videos are inlined as data: URIs (build_index.py). If the viewer refuses data: media, rebuild the same bytes as a
+   blob: URL and play from that. */
+document.querySelectorAll('video[data-inline]').forEach(function (v) {
+  var done = false;
+  function toBlob() {
+    if (done) return; done = true;
+    var s = v.querySelector('source'), d = s ? s.getAttribute('src') : '';
+    if (!d || d.indexOf('data:') !== 0) return;
+    try {
+      var bin = atob(d.slice(d.indexOf(',') + 1)), u = new Uint8Array(bin.length);
+      for (var i = 0; i < bin.length; i++) u[i] = bin.charCodeAt(i);
+      v.src = URL.createObjectURL(new Blob([u], { type: 'video/mp4' }));
+      v.load();
+    } catch (e) { /* keep the poster */ }
+  }
+  var first = v.querySelector('source');
+  if (first) first.addEventListener('error', toBlob);
+  v.addEventListener('error', toBlob);
+});
+document.querySelectorAll('.plate img').forEach(function (im) {
+  im.addEventListener('click', function () {
+    var o = document.createElement('div'); o.className = 'zoom'; o.setAttribute('role', 'dialog'); o.setAttribute('aria-label', im.alt || 'Figure');
+    var b = document.createElement('img'); b.src = im.src; b.alt = im.alt; o.appendChild(b);
+    function close() { o.remove(); document.removeEventListener('keydown', esc); }
+    function esc(e) { if (e.key === 'Escape') close(); }
+    o.addEventListener('click', close); document.addEventListener('keydown', esc); document.body.appendChild(o);
+  });
+});
+</script>
+
+</body>
+</html>
